@@ -26,7 +26,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import RepeatedStratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -84,6 +84,19 @@ def evaluate(pipe: Pipeline, X: pd.DataFrame, y: pd.Series) -> tuple[dict, list]
     return metrics, y_pred
 
 
+def cross_validate(params: dict, X: pd.DataFrame, y: pd.Series) -> dict:
+    """K-fold estratificado repetido (5x3) sobre train: estima el F1 esperado
+    y su variabilidad, evitando elegir el modelo con el conjunto de test."""
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=42)
+    f1s = []
+    for tr, va in cv.split(X, y):
+        pipe = build_pipeline(params).fit(X.iloc[tr])
+        f1s.append(f1_score(y.iloc[va], (pipe.predict(X.iloc[va]) == -1).astype(int)))
+    return {"cv_f1_mean": float(pd.Series(f1s).mean()),
+            "cv_f1_std": float(pd.Series(f1s).std()),
+            "cv_f1_min": float(min(f1s))}
+
+
 def plot_confusion(y_true, y_pred, path: str) -> None:
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     disp = ConfusionMatrixDisplay(cm, display_labels=["Normal", "Anómala"])
@@ -117,6 +130,8 @@ def main() -> None:
             train_metrics, _ = evaluate(pipe, X_train, y_train)
             test_metrics, y_pred = evaluate(pipe, X_test, y_test)
 
+            cv_metrics = cross_validate(params, X_train, y_train)
+            mlflow.log_metrics(cv_metrics)
             mlflow.log_params(params)
             mlflow.log_params(
                 {"model_type": "IsolationForest", "test_size": 0.3,
@@ -141,19 +156,20 @@ def main() -> None:
                 skops_trusted_types=["sklearn.tree._tree.Tree"],
             )
 
-            print(f"{run_name}: " + ", ".join(f"{k}={v:.3f}" for k, v in test_metrics.items()))
-            results.append((test_metrics["f1"], test_metrics["roc_auc"], run.info.run_id, run_name))
+            print(f"{run_name}: cv_f1={cv_metrics['cv_f1_mean']:.3f}±{cv_metrics['cv_f1_std']:.3f}, "
+                  + ", ".join(f"{k}={v:.3f}" for k, v in test_metrics.items()))
+            results.append((cv_metrics["cv_f1_mean"], test_metrics["f1"], run.info.run_id, run_name))
 
-    # Seleccionar el mejor run por F1 (desempate por ROC-AUC)
-    best_f1, best_auc, best_run_id, best_name = max(results)
-    print(f"\nMejor run: {best_name} (F1={best_f1:.3f}, AUC={best_auc:.3f})")
+    # Seleccionar el mejor run por F1 medio en k-fold (desempate por F1 de test)
+    best_cv, best_f1, best_run_id, best_name = max(results)
+    print(f"\nMejor run: {best_name} (F1 k-fold={best_cv:.3f}, F1 test={best_f1:.3f})")
 
     mv = mlflow.register_model(f"runs:/{best_run_id}/model", MODEL_NAME)
     client = MlflowClient()
     client.set_registered_model_alias(MODEL_NAME, "champion", mv.version)
     client.update_model_version(
         MODEL_NAME, mv.version,
-        description=f"Isolation Forest seleccionado del run {best_name} (F1 test={best_f1:.3f})",
+        description=f"Isolation Forest seleccionado del run {best_name} (F1 k-fold={best_cv:.3f}, F1 test={best_f1:.3f})",
     )
     print(f"Modelo registrado: {MODEL_NAME} v{mv.version} con alias 'champion'")
 
