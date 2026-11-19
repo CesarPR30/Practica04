@@ -1,0 +1,12 @@
+service: "src.service:ClaimsReviewService"
+labels:
+  owner: cdc-lab
+  project: insurance-claims
+include:
+  - "src/service.py"
+python:
+  packages:
+    - mlflow
+    - scikit-learn
+    - pandas
+    - pydantic

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+outputs_*.txt
+# Artefactos locales de MLflow (se regeneran con src/train.py)
+mlflow.db
+mlartifacts/
+mlruns/

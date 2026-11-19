@@ -1,0 +1,7 @@
+claim_id,claim_amount,num_services,patient_age,provider_id,days_since_last_claim
+CLM-9001,850.00,2,34,P001,180
+CLM-9002,15400.00,12,61,P003,3
+CLM-9003,2200.50,4,72,P002,95
+CLM-9004,21000.00,17,45,P005,1
+CLM-9005,450.25,1,28,P004,300
+CLM-9006,9800.00,9,50,P002,10
