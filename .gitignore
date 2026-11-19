@@ -8,3 +8,9 @@ outputs_*.txt
 mlflow.db
 mlartifacts/
 mlruns/
+# Entornos y dependencias locales
+node_modules/
+.ipynb_checkpoints/
+bentoml/
+*.bento
+package-lock.json
