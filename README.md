@@ -11,7 +11,7 @@ Grupo: Ricardo Acuña, César Pajuelo, Angello Soldi, Josué Velo, Paolo Medrano
 3. Registro del modelo (alias champion) e importación a BentoML: src/import_to_bentoml.py
 4. Servicio de predicción con BentoML: src/service.py y bentofile.yaml
 5. Informe con capturas: INFORME.md e INFORME.pdf
-6. Presentación: presentacion/presentacion_practica4.html y presentacion/presentacion_practica4.pptx (se generan con presentacion/build.py)
+6. Presentación (publicada con GitHub Pages): presentacion/presentacion_practica4.html y presentacion/presentacion_practica4.pptx (se generan con presentacion/build.py)
 
 ## Ejecución
 
