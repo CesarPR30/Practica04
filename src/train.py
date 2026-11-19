@@ -41,21 +41,29 @@ FEATURES = NUMERIC + CATEGORICAL
 TARGET = "is_anomaly"
 
 # Hiperparámetros a comparar
+# Variables informativas: patient_age y provider_id tienen la misma distribución
+# en reclamaciones normales y anómalas, por lo que solo añaden ruido al bosque.
+CORE = ["claim_amount", "num_services", "days_since_last_claim"]
 CONFIGS = [
-    {"n_estimators": 100, "contamination": 0.10, "max_samples": "auto"},
-    {"n_estimators": 200, "contamination": 0.20, "max_samples": "auto"},
-    {"n_estimators": 300, "contamination": 0.20, "max_samples": 64},
-    {"n_estimators": 200, "contamination": 0.30, "max_samples": "auto"},
+    {"n_estimators": 100, "contamination": 0.10, "max_samples": "auto", "features": "all"},
+    {"n_estimators": 200, "contamination": 0.20, "max_samples": "auto", "features": "all"},
+    {"n_estimators": 300, "contamination": 0.20, "max_samples": 64, "features": "all"},
+    {"n_estimators": 200, "contamination": 0.30, "max_samples": "auto", "features": "all"},
+    {"n_estimators": 200, "contamination": 0.20, "max_samples": "auto", "features": "core"},
+    {"n_estimators": 300, "contamination": 0.20, "max_samples": 64, "features": "core"},
 ]
 
 
 def build_pipeline(params: dict) -> Pipeline:
-    pre = ColumnTransformer(
-        [
+    params = dict(params)
+    if params.pop("features") == "core":
+        transformers = [("num", StandardScaler(), CORE)]
+    else:
+        transformers = [
             ("num", StandardScaler(), NUMERIC),
             ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL),
         ]
-    )
+    pre = ColumnTransformer(transformers)
     model = IsolationForest(random_state=42, **params)
     return Pipeline([("preprocessor", pre), ("model", model)])
 
@@ -99,7 +107,8 @@ def main() -> None:
 
     results = []
     for i, params in enumerate(CONFIGS, start=1):
-        run_name = f"iforest-{i}-n{params['n_estimators']}-c{params['contamination']}"
+        run_name = (f"iforest-{i}-n{params['n_estimators']}-c{params['contamination']}"
+                    f"-{params['features']}")
         with mlflow.start_run(run_name=run_name) as run:
             pipe = build_pipeline(params)
             # Entrenamiento no supervisado: la etiqueta no se usa para ajustar
